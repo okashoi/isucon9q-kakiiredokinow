@@ -1,7 +1,0 @@
-FROM golang:1.12-alpine
-
-COPY ./app/*.go /workspace/
-
-WORKDIR /workspace
-
-RUN go build -o server .
