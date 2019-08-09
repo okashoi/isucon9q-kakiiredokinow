@@ -1,0 +1,3 @@
+FROM varnish:6.2
+
+COPY varnish/default.vcl /etc/varnish/
