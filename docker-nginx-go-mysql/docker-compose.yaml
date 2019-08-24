@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+    reverse_proxy:
+        image: nginx:1.17
+        volumes:
+          - "$PWD/etc/nginx/nginx.conf:/etc/nginx/nginx.conf"
+        ports:
+          - "80:80"
+
+    app:
+        build:
+            context: ./
+            dockerfile: Dockerfile_go
+        command: "./app"
+        environment:
+            GOPATH: "/go"
+
+    db:
+        image: mysql:5.7
+        environment:
+            MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+            MYSQL_ROOT_PASSWORD: ""
+            MYSQL_DATABASE: "isucon"
+            MYSQL_USER: "isucon"
+            MYSQL_PASSWORD: "isucon"
+        ports:
+          - "3306:3306"

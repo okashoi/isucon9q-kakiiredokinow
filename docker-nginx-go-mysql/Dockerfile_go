@@ -2,8 +2,8 @@ FROM golang:1.12-alpine
 
 RUN apk add --no-cache make git
 
-COPY ./ /workspace/
+COPY ./go /go/src/app
 
-WORKDIR /workspace
+WORKDIR /go/src/app
 
 RUN make setup build
