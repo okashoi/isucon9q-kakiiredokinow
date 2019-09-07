@@ -12,7 +12,7 @@ services:
         build:
             context: ./
             dockerfile: Dockerfile_go
-        command: "./app"
+        command: "/go/src/isucon/webapp/go/app"
         environment:
             GOPATH: "/go"
 
