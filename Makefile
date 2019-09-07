@@ -29,5 +29,8 @@ up:
 down:
 	docker-compose down
 
+logs:
+	docker-compose logs -f
+
 mysql:
 	docker-compose exec db mysql -u root

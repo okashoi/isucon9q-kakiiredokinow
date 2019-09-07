@@ -24,3 +24,5 @@ services:
             MYSQL_DATABASE: "isucon"
             MYSQL_USER: "isucon"
             MYSQL_PASSWORD: "isucon"
+        volumes:
+          - "$PWD/mysql-dump.sql.gz:/docker-entrypoint-initdb.d/mysql-dump.sql.gz"
