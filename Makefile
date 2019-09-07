@@ -22,9 +22,12 @@ truncate-logs:
 
 
 # 開発用
-.PHONY: up down
+.PHONY: up down mysql
 up:
 	docker-compose up -d --build
 
 down:
 	docker-compose down
+
+mysql:
+	docker-compose exec db mysql -u root

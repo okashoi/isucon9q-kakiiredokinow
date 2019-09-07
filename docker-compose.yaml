@@ -24,5 +24,3 @@ services:
             MYSQL_DATABASE: "isucon"
             MYSQL_USER: "isucon"
             MYSQL_PASSWORD: "isucon"
-        ports:
-          - "3306:3306"
