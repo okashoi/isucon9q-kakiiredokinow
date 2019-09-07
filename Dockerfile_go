@@ -2,8 +2,4 @@ FROM golang:1.12-alpine
 
 RUN apk add --no-cache make git
 
-COPY . /go/src/isucon
-
 WORKDIR /go/src/isucon
-
-RUN make -C webapp/go setup build

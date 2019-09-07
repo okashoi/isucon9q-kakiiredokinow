@@ -7,12 +7,17 @@ services:
           - "$PWD/etc/nginx/nginx.conf:/etc/nginx/nginx.conf"
         ports:
           - "80:80"
+        depends_on:
+          - db
+          - app
 
     app:
         build:
             context: ./
             dockerfile: Dockerfile_go
-        command: "/go/src/isucon/webapp/go/app"
+        command: "make -C /go/src/isucon/webapp/go setup build run"
+        volumes:
+          - "$PWD:/go/src/isucon"
         environment:
             GOPATH: "/go"
 
