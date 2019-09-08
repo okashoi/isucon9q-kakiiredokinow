@@ -6,20 +6,24 @@ pull:
 	git pull origin master
 
 build:
-	go build -o ./go/app ./go/...
+	make -C webapp/go
 
 stop-services:
-	# sudo systemctl stop isuxi.go
+	sudo systemctl stop nginx
+	sudo systemctl stop mysql
+	sudo systemctl stop isucari.golang.service
 
 start-services:
-	# sudo systemctl daemon-reload
-	# sudo systemctl start isuxi.go
+	sudo systemctl daemon-reload
+	sudo systemctl start nginx
+	sudo systemctl start mysql
+	sudo systemctl start isucari.golang.service
 
 
 truncate-logs:
-	# sudo rm -f /var/log/mysql/error.log
-	# sudo rm -f /var/log/mysql/mysql-slow.log
-
+	sudo rm -f /var/log/nginx/access.log
+	sudo rm -f /var/log/mysql/error.log
+	sudo rm -f /var/log/mysql/mysql-slow.log
 
 # 開発用
 .PHONY: up down mysql
