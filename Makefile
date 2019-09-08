@@ -1,5 +1,5 @@
-
 .PHONY: gogo pull build stop-services start-services truncate-logs
+ROLE=monolith
 gogo: stop-services pull build truncate-logs start-services
 
 pull:
@@ -14,11 +14,7 @@ stop-services:
 	sudo systemctl stop isucari.golang.service
 
 start-services:
-	sudo systemctl daemon-reload
-	sudo systemctl start nginx
-	sudo systemctl start mysql
-	sudo systemctl start isucari.golang.service
-
+	$(MAKE) -f Makefile.$(ROLE) start-services
 
 truncate-logs:
 	sudo rm -f /var/log/nginx/access.log
