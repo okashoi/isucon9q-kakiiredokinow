@@ -413,7 +413,7 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 
 func getUserSimpleByIDs(q sqlx.Queryer, userIDs []int64) (map[int64]*UserSimple, error) {
 	var users []UserSimple
-	err := sqlx.Get(q, &users, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in ?", userIDs)
+	err := sqlx.Get(q, &users, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in (?)", userIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -440,7 +440,7 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 
 func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, error) {
 	var categories []Category
-	err := sqlx.Get(q, &categories, "SELECT id, parent_id, category_name FROM `categories` WHERE `id` in ?", categoryIDs)
+	err := sqlx.Get(q, &categories, "SELECT id, parent_id, category_name FROM `categories` WHERE `id` in (?)", categoryIDs)
 	if err != nil {
 		return nil, err
 	}
