@@ -57,8 +57,9 @@ max_connections        = 1000
 #
 # * Query Cache Configuration
 #
-query_cache_limit	= 1M
-query_cache_size        = 16M
+query_cache_limit	= 8M
+query_cache_size        = 0
+query_cache_type = 0
 #
 # * Logging and Replication
 #
@@ -92,7 +93,10 @@ max_binlog_size   = 100M
 #
 # InnoDB is enabled by default with a 10MB datafile in /var/lib/mysql/.
 # Read the manual for more InnoDB related options. There are many!
-#
+
+innodb_buffer_pool_size = 1G
+innodb_log_file_size = 250M
+
 # * Security Features
 #
 # Read the manual, too, if you want chroot!
