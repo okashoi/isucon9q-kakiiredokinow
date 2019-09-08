@@ -15,13 +15,14 @@ stop-services:
 
 start-services:
 	sudo systemctl daemon-reload
-	sudo systemctl start nginx
 	sudo systemctl start mysql
 	sudo systemctl start isucari.golang.service
+	sudo systemctl start nginx
 
 
 truncate-logs:
 	sudo rm -f /var/log/nginx/access.log
+	sudo rm -f /var/log/nginx/error.log
 	sudo rm -f /var/log/mysql/error.log
 	sudo rm -f /var/log/mysql/mysql-slow.log
 
