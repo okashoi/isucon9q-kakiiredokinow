@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 	_ "net/http/pprof"
 	_ "github.com/go-sql-driver/mysql"
@@ -950,6 +951,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
+		// TODO ほくとさんのユーザーを取ってくるやつをまつ
 		if item.BuyerID != 0 {
 			buyer, err := getUserSimpleByID(tx, item.BuyerID)
 			if err != nil {
@@ -1018,6 +1020,44 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(rts)
 
+}
+
+func getSippingByIDs(err error, tx interface{}, transactionEvidenceIDs []int64, w http.ResponseWriter) (map[int64]*Shipping, bool) {
+	shippings := []Shipping{}
+	err = tx.Get(&shippings, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` in (?)", transactionEvidenceIDs)
+	if err == sql.ErrNoRows {
+		outputErrorMsg(w, http.StatusNotFound, "shipping not found")
+		tx.Rollback()
+		return nil, true
+	}
+	if err != nil {
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return nil, true
+	}
+	mapped2 := map[int64]*Shipping{}
+	for _, s := range shippings {
+		mapped2[s.ID] = &s
+	}
+	return mapped2, false
+}
+
+func getTransactionEvidenceByIDs(err error, tx interface{}, itemIDs []int64, w http.ResponseWriter) (map[int64]*TransactionEvidence, bool) {
+	var transactionEvidences []TransactionEvidence
+	err = tx.Get(&transactionEvidences, "SELECT * FROM `transaction_evidences` WHERE `item_id` in (?)", itemIDs)
+	if err != nil {
+		// It's able to ignore ErrNoRows
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return nil, true
+	}
+	var mapped = map[int64]*TransactionEvidence{}
+	for _, t := range transactionEvidences {
+		mapped[t.ID] = &t
+	}
+	return mapped, false
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
