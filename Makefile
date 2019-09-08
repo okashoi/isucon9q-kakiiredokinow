@@ -1,9 +1,6 @@
-.PHONY: gogo pull build stop-services start-services truncate-logs
+.PHONY: gogo build stop-services start-services truncate-logs
 ROLE=monolith
 gogo: stop-services build truncate-logs start-services
-
-pull:
-	git pull origin master
 
 build:
 	make -C webapp/go
