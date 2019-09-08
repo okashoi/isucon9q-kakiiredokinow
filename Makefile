@@ -6,14 +6,18 @@ pull:
 	git pull origin master
 
 build:
-	go build -o ./go/app ./go/...
+	make -C webapp/go
 
 stop-services:
-	# sudo systemctl stop isuxi.go
+	sudo systemctl stop nginx
+	sudo systemctl stop mysql
+	sudo systemctl stop isucari.golang.service
 
 start-services:
-	# sudo systemctl daemon-reload
-	# sudo systemctl start isuxi.go
+	sudo systemctl daemon-reload
+	sudo systemctl start nginx
+	sudo systemctl start mysql
+	sudo systemctl start isucari.golang.service
 
 
 truncate-logs:
