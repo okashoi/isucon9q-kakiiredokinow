@@ -1,6 +1,6 @@
 .PHONY: gogo pull build stop-services start-services truncate-logs
 ROLE=monolith
-gogo: stop-services pull build truncate-logs start-services
+gogo: stop-services build truncate-logs start-services
 
 pull:
 	git pull origin master
@@ -18,6 +18,7 @@ start-services:
 
 truncate-logs:
 	sudo rm -f /var/log/nginx/access.log
+	sudo rm -f /var/log/nginx/error.log
 	sudo rm -f /var/log/mysql/error.log
 	sudo rm -f /var/log/mysql/mysql-slow.log
 
