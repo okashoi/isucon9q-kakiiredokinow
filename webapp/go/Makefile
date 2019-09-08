@@ -1,11 +1,6 @@
-BINARY_NAME=app
+export GO111MODULE=on
 
-.PHONY: setup build run
-setup:
-	go get github.com/go-sql-driver/mysql
+all: isucari
 
-build:
-	go build -o $(BINARY_NAME) .
-
-run:
-	./$(BINARY_NAME)
+isucari: *.go
+	go build -o isucari
