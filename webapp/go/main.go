@@ -5,22 +5,22 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"html/template"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
-	"time"
-	_ "net/http/pprof"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
+	"html/template"
+	"io/ioutil"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"time"
 )
 
 const (
@@ -447,12 +447,14 @@ func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, err
 
 	var mapped = map[int]*Category{}
 	for _, c := range categories {
-		// TODO: N+1解決
-		parentCategory, err := getCategoryByID(q, c.ParentID)
-		if err != nil {
-			return mapped, err
+		if c.ParentID != 0 {
+			// TODO: N+1解決
+			parentCategory, err := getCategoryByID(q, c.ParentID)
+			if err != nil {
+				return mapped, err
+			}
+			c.ParentCategoryName = parentCategory.CategoryName
 		}
-		c.ParentCategoryName = parentCategory.CategoryName
 		mapped[c.ID] = &c
 	}
 
