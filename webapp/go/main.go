@@ -1121,6 +1121,7 @@ func getSippingByIDs(err error, tx interface{}, transactionEvidenceIDs []int64) 
 	return mapped, nil
 }
 
+// TODO これ途中
 func getTransactionEvidenceByIDs(err error, tx interface{}, itemIDs []int64, w http.ResponseWriter) (map[int64]*TransactionEvidence, bool) {
 	var transactionEvidences []TransactionEvidence
 	err = tx.Get(&transactionEvidences, "SELECT * FROM `transaction_evidences` WHERE `item_id` in (?)", itemIDs)
