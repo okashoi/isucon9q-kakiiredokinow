@@ -400,18 +400,6 @@ func getUser(r *http.Request) (user User, errCode int, errMsg string) {
 	return user, http.StatusOK, ""
 }
 
-func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err error) {
-	user := User{}
-	err = sqlx.Get(q, &user, "SELECT * FROM `users` WHERE `id` = ?", userID)
-	if err != nil {
-		return userSimple, err
-	}
-	userSimple.ID = user.ID
-	userSimple.AccountName = user.AccountName
-	userSimple.NumSellItems = user.NumSellItems
-	return userSimple, err
-}
-
 func getUserSimpleByIDs(q *sqlx.DB, userIDs []int64) (map[int64]*UserSimple, error) {
 	query, args, err := sqlx.In("SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in (?)", userIDs)
 	if err != nil {
@@ -617,28 +605,38 @@ func getNewItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sellerIds := make([]int64, len(items))
+	categoryIds := make([]int, len(items))
+	for _, i := range items {
+		sellerIds = append(sellerIds, i.SellerID)
+		categoryIds = append(categoryIds, i.CategoryID)
+	}
+
+	sellers, err := getUserSimpleByIDs(dbx, sellerIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+	categories, err := getCategoryByIDs(dbx, categoryIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "category not found")
+		return
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			return
-		}
-		category, err := getCategoryByID(dbx, item.CategoryID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			return
-		}
 		itemSimples = append(itemSimples, ItemSimple{
 			ID:         item.ID,
 			SellerID:   item.SellerID,
-			Seller:     &seller,
+			Seller:     sellers[item.SellerID],
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
 			ImageURL:   getImageURL(item.ImageName),
 			CategoryID: item.CategoryID,
-			Category:   &category,
+			Category:   categories[item.CategoryID],
 			CreatedAt:  item.CreatedAt.Unix(),
 		})
 	}
@@ -807,11 +805,12 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userSimple, err := getUserSimpleByID(dbx, userID)
+	users, err := getUserSimpleByIDs(dbx, []int64{userID})
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "user not found")
 		return
 	}
+	userSimple := users[userID]
 
 	query := r.URL.Query()
 	itemIDStr := query.Get("item_id")
@@ -880,7 +879,7 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 		itemSimples = append(itemSimples, ItemSimple{
 			ID:         item.ID,
 			SellerID:   item.SellerID,
-			Seller:     &userSimple,
+			Seller:     userSimple,
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
@@ -898,7 +897,7 @@ func getUserItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rui := resUserItems{
-		User:    &userSimple,
+		User:    userSimple,
 		Items:   itemSimples,
 		HasNext: hasNext,
 	}
@@ -982,25 +981,37 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	userIds := make([]int64, len(items))
+	categoryIds := make([]int, len(items))
+	for _, i := range items {
+		userIds = append(userIds, i.SellerID)
+		if i.BuyerID != 0 {
+			userIds = append(userIds, i.BuyerID)
+		}
+		categoryIds = append(categoryIds, i.CategoryID)
+	}
+
+	users, err := getUserSimpleByIDs(dbx, append(userIds))
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		tx.Rollback()
+		return
+	}
+	categories, err := getCategoryByIDs(dbx, categoryIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "category not found")
+		tx.Rollback()
+		return
+	}
+
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(tx, item.SellerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			tx.Rollback()
-			return
-		}
-		category, err := getCategoryByID(tx, item.CategoryID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			tx.Rollback()
-			return
-		}
-
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			Seller:   &seller,
+			Seller:   users[item.SellerID],
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -1012,20 +1023,15 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category:  &category,
+			Category: categories[item.CategoryID],
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
 		// TODO ほくとさんのユーザーを取ってくるやつをまつ
 		if item.BuyerID != 0 {
-			buyer, err := getUserSimpleByID(tx, item.BuyerID)
-			if err != nil {
-				outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-				tx.Rollback()
-				return
-			}
+			buyer := users[item.BuyerID]
 			itemDetail.BuyerID = item.BuyerID
-			itemDetail.Buyer = &buyer
+			itemDetail.Buyer = buyer
 		}
 
 		transactionEvidence := TransactionEvidence{}
@@ -1171,7 +1177,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seller, err := getUserSimpleByID(dbx, item.SellerID)
+	users, err := getUserSimpleByIDs(dbx, []int64{item.SellerID, item.BuyerID})
 	if err != nil {
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		return
@@ -1180,7 +1186,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	itemDetail := ItemDetail{
 		ID:       item.ID,
 		SellerID: item.SellerID,
-		Seller:   &seller,
+		Seller:   users[item.SellerID],
 		// BuyerID
 		// Buyer
 		Status:      item.Status,
@@ -1197,13 +1203,9 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if (user.ID == item.SellerID || user.ID == item.BuyerID) && item.BuyerID != 0 {
-		buyer, err := getUserSimpleByID(dbx, item.BuyerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "buyer not found")
-			return
-		}
+		buyer := users[item.BuyerID]
 		itemDetail.BuyerID = item.BuyerID
-		itemDetail.Buyer = &buyer
+		itemDetail.Buyer = buyer
 
 		transactionEvidence := TransactionEvidence{}
 		err = dbx.Get(&transactionEvidence, "SELECT * FROM `transaction_evidences` WHERE `item_id` = ?", item.ID)
