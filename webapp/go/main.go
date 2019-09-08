@@ -981,25 +981,34 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	sellerIds := make([]int64, len(items))
+	categoryIds := make([]int, len(items))
+	for _, i := range items {
+		sellerIds = append(sellerIds, i.SellerID)
+		categoryIds = append(categoryIds, i.CategoryID)
+	}
+
+	sellers, err := getUserSimpleByIDs(dbx, sellerIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		tx.Rollback()
+		return
+	}
+	categories, err := getCategoryByIDs(dbx, categoryIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "category not found")
+		tx.Rollback()
+		return
+	}
+
 	itemDetails := []ItemDetail{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(tx, item.SellerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			tx.Rollback()
-			return
-		}
-		category, err := getCategoryByID(tx, item.CategoryID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			tx.Rollback()
-			return
-		}
-
 		itemDetail := ItemDetail{
 			ID:       item.ID,
 			SellerID: item.SellerID,
-			Seller:   &seller,
+			Seller:   sellers[item.SellerID],
 			// BuyerID
 			// Buyer
 			Status:      item.Status,
@@ -1011,7 +1020,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			// TransactionEvidenceID
 			// TransactionEvidenceStatus
 			// ShippingStatus
-			Category:  &category,
+			Category: categories[item.CategoryID],
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
