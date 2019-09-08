@@ -1,9 +1,6 @@
 
 .PHONY: gogo pull build stop-services start-services truncate-logs
-gogo: stop-services pull build truncate-logs start-services
-
-pull:
-	git pull origin master
+gogo: stop-services build truncate-logs start-services
 
 build:
 	make -C webapp/go
