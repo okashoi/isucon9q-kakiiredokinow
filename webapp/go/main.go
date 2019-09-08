@@ -5,23 +5,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"html/template"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
-	_ "net/http/pprof"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
 	goji "goji.io"
 	"goji.io/pat"
 	"golang.org/x/crypto/bcrypt"
+	"html/template"
+	"io/ioutil"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -82,9 +82,9 @@ type User struct {
 }
 
 type UserSimple struct {
-	ID           int64  `json:"id"`
-	AccountName  string `json:"account_name"`
-	NumSellItems int    `json:"num_sell_items"`
+	ID           int64  `json:"id" db:"id"`
+	AccountName  string `json:"account_name" db:"account_name"`
+	NumSellItems int    `json:"num_sell_items" db:"num_sell_items"`
 }
 
 type Item struct {
@@ -412,6 +412,28 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 	return userSimple, err
 }
 
+func getUserSimpleByIDs(q *sqlx.DB, userIDs []int64) (map[int64]*UserSimple, error) {
+	query, args, err := sqlx.In("SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in (?)", userIDs)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var mapped = map[int64]*UserSimple{}
+	for rows.Next() {
+		var u UserSimple
+		if err := rows.Scan(&u.ID, &u.AccountName, &u.NumSellItems); err != nil {
+			return nil, err
+		}
+		mapped[u.ID] = &u
+	}
+
+	return mapped, nil
+}
+
 func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err error) {
 	err = sqlx.Get(q, &category, "SELECT * FROM `categories` WHERE `id` = ?", categoryID)
 	if category.ParentID != 0 {
@@ -422,6 +444,39 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 		category.ParentCategoryName = parentCategory.CategoryName
 	}
 	return category, err
+}
+
+func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, error) {
+	query, args, err := sqlx.In("SELECT id, parent_id, category_name FROM `categories` WHERE `id` in (?)", categoryIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := q.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	var mapped = map[int]*Category{}
+	for rows.Next() {
+		var c Category
+		if err := rows.Scan(&c.ID, &c.ParentID, &c.CategoryName); err != nil {
+			return nil, err
+		}
+
+		if c.ParentID != 0 {
+			// TODO: N+1解決
+			parentCategory, err := getCategoryByID(q, c.ParentID)
+			if err != nil {
+				return mapped, err
+			}
+			c.ParentCategoryName = parentCategory.CategoryName
+		}
+
+		mapped[c.ID] = &c
+	}
+
+	return mapped, nil
 }
 
 func getConfigByName(name string) (string, error) {
@@ -690,28 +745,38 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sellerIds := make([]int64, len(items))
+	categoryIds := make([]int, len(items))
+	for _, i := range items {
+		sellerIds = append(sellerIds, i.SellerID)
+		categoryIds = append(categoryIds, i.CategoryID)
+	}
+
+	sellers, err := getUserSimpleByIDs(dbx, sellerIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "seller not found")
+		return
+	}
+	categories, err := getCategoryByIDs(dbx, categoryIds)
+	if err != nil {
+		log.Println(err)
+		outputErrorMsg(w, http.StatusNotFound, "category not found")
+		return
+	}
+
 	itemSimples := []ItemSimple{}
 	for _, item := range items {
-		seller, err := getUserSimpleByID(dbx, item.SellerID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "seller not found")
-			return
-		}
-		category, err := getCategoryByID(dbx, item.CategoryID)
-		if err != nil {
-			outputErrorMsg(w, http.StatusNotFound, "category not found")
-			return
-		}
 		itemSimples = append(itemSimples, ItemSimple{
 			ID:         item.ID,
 			SellerID:   item.SellerID,
-			Seller:     &seller,
+			Seller:     sellers[item.SellerID],
 			Status:     item.Status,
 			Name:       item.Name,
 			Price:      item.Price,
 			ImageURL:   getImageURL(item.ImageName),
 			CategoryID: item.CategoryID,
-			Category:   &category,
+			Category:   categories[item.CategoryID],
 			CreatedAt:  item.CreatedAt.Unix(),
 		})
 	}
