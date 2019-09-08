@@ -440,7 +440,7 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 
 func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, error) {
 	var categories []Category
-	err := sqlx.Get(q, &categories, "SELECT id, parent_id, category_name FROM `categories` WHERE `id` = ?", categoryIDs)
+	err := sqlx.Get(q, &categories, "SELECT id, parent_id, category_name FROM `categories` WHERE `id` in ?", categoryIDs)
 	if err != nil {
 		return nil, err
 	}
