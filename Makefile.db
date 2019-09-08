@@ -1,0 +1,3 @@
+start-services:
+	sudo systemctl daemon-reload
+	sudo systemctl start mysql
