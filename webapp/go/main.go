@@ -1087,25 +1087,38 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func getSippingByIDs(err error, tx interface{}, transactionEvidenceIDs []int64, w http.ResponseWriter) (map[int64]*Shipping, bool) {
-	shippings := []Shipping{}
-	err = tx.Get(&shippings, "SELECT * FROM `shippings` WHERE `transaction_evidence_id` in (?)", transactionEvidenceIDs)
-	if err == sql.ErrNoRows {
-		outputErrorMsg(w, http.StatusNotFound, "shipping not found")
-		tx.Rollback()
-		return nil, true
-	}
+func getSippingByIDs(err error, tx interface{}, transactionEvidenceIDs []int64) (map[int64]*Shipping, error) {
+	query, args, err := sqlx.In("SELECT transaction_evidence_id, status, item_id, reserve_id,reserve_time, to_address, to_name, from_address, from_name, img_binary, created_at, updated_at FROM `shippings` WHERE `transaction_evidence_id` in (?)", transactionEvidenceIDs)
 	if err != nil {
-		log.Print(err)
-		outputErrorMsg(w, http.StatusInternalServerError, "db error")
-		tx.Rollback()
-		return nil, true
+		return nil, err
 	}
-	mapped2 := map[int64]*Shipping{}
-	for _, s := range shippings {
-		mapped2[s.ID] = &s
+	rows, err := q.Query(query, args...)
+	if err != nil {
+		return nil, err
 	}
-	return mapped2, false
+
+	mapped := map[int64]*Shipping{}
+	for rows.Next() {
+		var s Shipping
+		if err := rows.Scan(
+			&s.TransactionEvidenceID,
+			&s.Status,
+			&s.ItemName,
+			&s.ItemID,
+			&s.ReserveID,
+			&s.ReserveTime,
+			&s.ToAddress,
+			&s.ToName,
+			&s.FromAddress,
+			&s.FromName,
+			&s.ImgBinary,
+			&s.CreatedAt,
+			&s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		mapped[s.TransactionEvidenceID] = &s
+	}
+	return mapped, nil
 }
 
 func getTransactionEvidenceByIDs(err error, tx interface{}, itemIDs []int64, w http.ResponseWriter) (map[int64]*TransactionEvidence, bool) {
