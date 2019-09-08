@@ -24,6 +24,7 @@ truncate-logs:
 # 開発用
 .PHONY: up down mysql
 up:
+	rm -f webapp/go/isucari
 	docker-compose up -d --build
 
 down:
