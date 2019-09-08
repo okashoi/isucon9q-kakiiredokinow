@@ -21,9 +21,9 @@ start-services:
 
 
 truncate-logs:
-	# sudo rm -f /var/log/mysql/error.log
-	# sudo rm -f /var/log/mysql/mysql-slow.log
-
+	sudo rm -f /var/log/nginx/access.log
+	sudo rm -f /var/log/mysql/error.log
+	sudo rm -f /var/log/mysql/mysql-slow.log
 
 # 開発用
 .PHONY: up down mysql
