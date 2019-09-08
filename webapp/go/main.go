@@ -81,9 +81,9 @@ type User struct {
 }
 
 type UserSimple struct {
-	ID           int64  `json:"id"`
-	AccountName  string `json:"account_name"`
-	NumSellItems int    `json:"num_sell_items"`
+	ID           int64  `json:"id" db:"id"`
+	AccountName  string `json:"account_name" db:"account_name"`
+	NumSellItems int    `json:"num_sell_items" db:"num_sell_items"`
 }
 
 type Item struct {
@@ -411,15 +411,22 @@ func getUserSimpleByID(q sqlx.Queryer, userID int64) (userSimple UserSimple, err
 	return userSimple, err
 }
 
-func getUserSimpleByIDs(q sqlx.Queryer, userIDs []int64) (map[int64]*UserSimple, error) {
-	var users []UserSimple
-	err := sqlx.Get(q, &users, "SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in (?)", userIDs)
+func getUserSimpleByIDs(q *sqlx.DB, userIDs []int64) (map[int64]*UserSimple, error) {
+	query, args, err := sqlx.In("SELECT id, account_name, num_sell_items FROM `users` WHERE `id` in (?)", userIDs)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 
 	var mapped = map[int64]*UserSimple{}
-	for _, u := range users {
+	for rows.Next() {
+		var u UserSimple
+		if err := rows.Scan(&u.ID, &u.AccountName, &u.NumSellItems); err != nil {
+			return nil, err
+		}
 		mapped[u.ID] = &u
 	}
 
@@ -439,14 +446,23 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 }
 
 func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, error) {
-	var categories []Category
-	err := sqlx.Get(q, &categories, "SELECT id, parent_id, category_name FROM `categories` WHERE `id` in (?)", categoryIDs)
+	query, args, err := sqlx.In("SELECT id, parent_id, category_name FROM `categories` WHERE `id` in (?)", categoryIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := q.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 
 	var mapped = map[int]*Category{}
-	for _, c := range categories {
+	for rows.Next() {
+		var c Category
+		if err := rows.Scan(&c.ID, &c.ParentID, &c.CategoryName); err != nil {
+			return nil, err
+		}
+
 		if c.ParentID != 0 {
 			// TODO: N+1解決
 			parentCategory, err := getCategoryByID(q, c.ParentID)
@@ -455,6 +471,7 @@ func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, err
 			}
 			c.ParentCategoryName = parentCategory.CategoryName
 		}
+
 		mapped[c.ID] = &c
 	}
 
@@ -736,11 +753,13 @@ func getNewCategoryItems(w http.ResponseWriter, r *http.Request) {
 
 	sellers, err := getUserSimpleByIDs(dbx, sellerIds)
 	if err != nil {
+		log.Println(err)
 		outputErrorMsg(w, http.StatusNotFound, "seller not found")
 		return
 	}
 	categories, err := getCategoryByIDs(dbx, categoryIds)
 	if err != nil {
+		log.Println(err)
 		outputErrorMsg(w, http.StatusNotFound, "category not found")
 		return
 	}
