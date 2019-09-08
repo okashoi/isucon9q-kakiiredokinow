@@ -167,7 +167,7 @@ type Category struct {
 	ID                 int    `json:"id" db:"id"`
 	ParentID           int    `json:"parent_id" db:"parent_id"`
 	CategoryName       string `json:"category_name" db:"category_name"`
-	ParentCategoryName string `json:"parent_category_name,omitempty" db:"-"`
+	ParentCategoryName string `json:"parent_category_name,omitempty" db:"parent_category_name"`
 }
 
 type reqInitialize struct {
@@ -434,7 +434,11 @@ func getCategoryByID(q sqlx.Queryer, categoryID int) (category Category, err err
 }
 
 func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, error) {
-	query, args, err := sqlx.In("SELECT id, parent_id, category_name FROM `categories` WHERE `id` in (?)", categoryIDs)
+	query, args, err := sqlx.In(`
+		SELECT c.id, c.parent_id, c.category_name, parent.category_name
+		FROM categories as c
+		left join (select c2.id, c2.category_name from categories as c2) as parent on parent.id = c.parent_id
+		WHERE c.id in (?)`, categoryIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -447,17 +451,8 @@ func getCategoryByIDs(q sqlx.Queryer, categoryIDs []int) (map[int]*Category, err
 	var mapped = map[int]*Category{}
 	for rows.Next() {
 		var c Category
-		if err := rows.Scan(&c.ID, &c.ParentID, &c.CategoryName); err != nil {
+		if err := rows.Scan(&c.ID, &c.ParentID, &c.CategoryName, &c.ParentCategoryName); err != nil {
 			return nil, err
-		}
-
-		if c.ParentID != 0 {
-			// TODO: N+1解決
-			parentCategory, err := getCategoryByID(q, c.ParentID)
-			if err != nil {
-				return mapped, err
-			}
-			c.ParentCategoryName = parentCategory.CategoryName
 		}
 
 		mapped[c.ID] = &c
