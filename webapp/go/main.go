@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -1021,6 +1022,7 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: item.CreatedAt.Unix(),
 		}
 
+		// TODO ほくとさんのユーザーを取ってくるやつをまつ
 		if item.BuyerID != 0 {
 			buyer := users[item.BuyerID]
 			itemDetail.BuyerID = item.BuyerID
@@ -1084,6 +1086,58 @@ func getTransactions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 	json.NewEncoder(w).Encode(rts)
 
+}
+
+func getSippingByIDs(err error, tx interface{}, transactionEvidenceIDs []int64) (map[int64]*Shipping, error) {
+	query, args, err := sqlx.In("SELECT transaction_evidence_id, status, item_id, reserve_id,reserve_time, to_address, to_name, from_address, from_name, img_binary, created_at, updated_at FROM `shippings` WHERE `transaction_evidence_id` in (?)", transactionEvidenceIDs)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	mapped := map[int64]*Shipping{}
+	for rows.Next() {
+		var s Shipping
+		if err := rows.Scan(
+			&s.TransactionEvidenceID,
+			&s.Status,
+			&s.ItemName,
+			&s.ItemID,
+			&s.ReserveID,
+			&s.ReserveTime,
+			&s.ToAddress,
+			&s.ToName,
+			&s.FromAddress,
+			&s.FromName,
+			&s.ImgBinary,
+			&s.CreatedAt,
+			&s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		mapped[s.TransactionEvidenceID] = &s
+	}
+	return mapped, nil
+}
+
+// TODO これ途中
+func getTransactionEvidenceByIDs(err error, tx interface{}, itemIDs []int64, w http.ResponseWriter) (map[int64]*TransactionEvidence, bool) {
+	var transactionEvidences []TransactionEvidence
+	err = tx.Get(&transactionEvidences, "SELECT * FROM `transaction_evidences` WHERE `item_id` in (?)", itemIDs)
+	if err != nil {
+		// It's able to ignore ErrNoRows
+		log.Print(err)
+		outputErrorMsg(w, http.StatusInternalServerError, "db error")
+		tx.Rollback()
+		return nil, true
+	}
+	var mapped = map[int64]*TransactionEvidence{}
+	for _, t := range transactionEvidences {
+		mapped[t.ID] = &t
+	}
+	return mapped, false
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
